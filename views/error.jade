@@ -1,7 +1,13 @@
-extends layout
-
 block content
   h1= title
   h3= message
   h2= error.status
   pre #{error.stack}
+
+block 
+  a(href="/client")  open client
+
+br
+
+block a(href="/index") 
+  a(href="/index")  open game

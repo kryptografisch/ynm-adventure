@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Tower Dungeon Community Game</title>
+    <style>
+      body {
+        background-image: url(/images?image=game_BG_tiled_small);
+        background-repeat: repeat;
+
+        color: white;
+      }
+    </style>
+    <script src="components/jquery/dist/jquery.min.js"></script>
+    <script>
+      $(document).ready(function () {
+        var search = window.location.search;
+        $("#startingPoint,#achievedPoints").change(function () {
+          console.log("chagne");
+          $("#gameLink").attr(
+            "href",
+            "/game?startingPoint=" +
+              $("#startingPoint").val() +
+              "&achievedPoints=" +
+              $("#achievedPoints").val(),
+          );
+        });
+      });
+    </script>
+  </head>
+  <body>
+    <div id="debug">
+      <label>custom starting point (fx.x.x)</label>
+      <input id="startingPoint" value="" type="text" />
+      <br />
+      <label>achieved points</label>
+      <input id="achievedPoints" value="0" type="number" />
+      <br />
+    </div>
+    <div style="width: 853px; margin: 0 auto">
+      <div style="height: 860px; vertical-align: middle; display: table-cell">
+        <a
+          id="gameLink"
+          href="/game"
+          style="color: white; text-decoration: none"
+        >
+          <video id="video" preload="auto" autoplay muted loop>
+            <source
+              id="videoSource"
+              src="/videos?video=title_loop"
+              type="video/mp4"
+            />
+          </video>
+        </a>
+      </div>
+    </div>
+  </body>
+</html>
