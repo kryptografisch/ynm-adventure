@@ -236,6 +236,7 @@
       }
 
       $(document).ready(function () {
+        $("#client-link").html(`${window.location.host}/client`);
         $("#play").click(function (event) {
           console.log("click");
           $("#play").hide();
@@ -253,7 +254,11 @@
       </div>
     </div>
 
-    <div class="initial-play"><button id="play">Play</button></div>
+    <div class="initial-play">
+      open <a id="client-link" target="_blank" href="/client">client</a> on your
+      mobile phones<br />
+      <button id="play">Play</button>
+    </div>
 
     <div class="progress" id="answers">
       <div class="progress-bar progress-bar-danger" id="answers-yes">
