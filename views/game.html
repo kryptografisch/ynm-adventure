@@ -1,228 +1,267 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
+  <head>
+    <meta charset="UTF-8" />
     <title>community master/server</title>
     <style>
-    body {
+      body {
         background-image: url(/images?image=game_BG_tiled_small);
         background-repeat: repeat;
 
         color: white !important;
-    }
+      }
 
-    button {
+      button {
         color: black !important;
-    }
+      }
 
-    #answers {
+      #answers {
         position: absolute;
         left: 0;
         right: 0;
         bottom: 5%;
-        display:none; 
-        width:1024px; 
-        margin:0 auto;
-    }
+        display: none;
+        width: 1024px;
+        margin: 0 auto;
+      }
 
-    .video-container {
-        width:1024px; 
-        margin:0 auto;
-    }
-    .video-container-inner {
-        height:768px; 
-        vertical-align: middle; 
-        display:table-cell;
-    }
+      .video-container {
+        width: 1024px;
+        margin: 0 auto;
+      }
+      .video-container-inner {
+        height: 768px;
+        vertical-align: middle;
+        display: table-cell;
+      }
 
-    .progess .progress-bar {
+      .progess .progress-bar {
         width: 50%;
-    }
+      }
 
-    #video {
+      #video {
         width: 1024px;
         height: 576px;
-    }
-</style>
+      }
 
-<link rel="stylesheet" href="components/bootstrap/dist/css/bootstrap.min.css">
-<link rel="stylesheet" href="components/bootstrap/dist/css/bootstrap-theme.min.css">
-<script src="components/jquery/dist/jquery.min.js"></script>
-<script src="components/bootstrap/dist/js/bootstrap.min.js"></script>
+      .initial-play {
+        text-align: center;
+        zoom: 2;
+      }
+    </style>
 
-<script>
-    $.ajaxSetup({cache: false});
+    <link
+      rel="stylesheet"
+      href="components/bootstrap/dist/css/bootstrap.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="components/bootstrap/dist/css/bootstrap-theme.min.css"
+    />
+    <script src="components/jquery/dist/jquery.min.js"></script>
+    <script src="components/bootstrap/dist/js/bootstrap.min.js"></script>
 
-    var audioMuted = false;
+    <script>
+      $.ajaxSetup({ cache: false });
 
-    var search = window.location.search;
-    var debug = false;
-    if (search.indexOf("&") != -1) {
+      var audioMuted = false;
+
+      var search = window.location.search;
+      var debug = false;
+      if (search.indexOf("&") != -1) {
         search = search.split("&");
         var param1 = search[0].split("=");
         var param2 = search[1].split("=");
         param1 = param1[1];
         param2 = parseInt(param2[1]);
         debug = true;
-    }
+      }
 
-    var source = new EventSource("/updates", {withCredentials: false});
+      var source = new EventSource("/updates", { withCredentials: false });
 
-        //mediacounter is passed to client, so only for current event can be voted.
-        var mediaCounter = 1;
-        var gameData = null;
-        var currentStateId = "";
+      //mediacounter is passed to client, so only for current event can be voted.
+      var mediaCounter = 1;
+      var gameData = null;
+      var currentStateId = "";
 
-        var _sympathy = 0;
-        if (debug === true) {
-            currentStateId = param1;
-            _sympathy = param2;
+      var _sympathy = 0;
+      if (debug === true) {
+        currentStateId = param1;
+        _sympathy = param2;
+      }
+
+      $.get("/data").then(function (data) {
+        gameData = data;
+        console.log("retrieved game data", gameData);
+        if (currentStateId.length == 0) {
+          console.log("no initial value set. setting default start point");
+          currentStateId = gameData.start;
         }
 
-        $.get("/data").then(function (data) {
-            gameData = data;
-            console.log("retrieved game data", gameData);
-            if (currentStateId.length == 0) {
-                currentStateId = gameData.start;
-            }
-            startNextVideo(currentStateId);
-        });
+        console.log("loading video", currentStateId);
+        $("#videoSource").attr("src", "/videos?video=" + currentStateId);
+        $("#video").load();
 
-        $("#video").keypress(function(event) {
-            if ("m" === String.fromCharCode(event.keyCode)) {
-                audioMuted = !audioMuted;
-                muteOrUnmuteAudio();
-            }
-        });
+        // user needs to click Play
+      });
 
-        source.addEventListener("ping", function (event) {
-            console.log("ping event received");
-        });
-
-        source.addEventListener("vote", function (event) {
-
-            var data = JSON.parse(event.data);
-
-            var sumAnswers = data.answers.yes + data.answers.no;
-            $("#answers-yes").css("width", (Math.round((data.answers.yes / sumAnswers) * 100)) + "%");
-            $("#answers-no").css("width", (Math.round((data.answers.no / sumAnswers) * 100)) + "%");
-            $("#answers-yes").text(data.answers.yes);
-            $("#answers-no").text(data.answers.no);
-
-            $("#answers").show();
-
-            //blocks the process for 5 seconds and continues with evaluation -> next video.
-            setTimeout(function () {
-
-                $("#answers").hide();
-
-                var current;
-                var finalAnswer = "";
-
-                if (parseInt($("#answers-yes").css("width")) > 65) {
-                    current = gameData[currentStateId].yes;
-                    finalAnswer = "yes";
-                } else if (parseInt($("#answers-no").css("width")) > 65) {
-                    current = gameData[currentStateId].no;
-                    finalAnswer = "no";
-                } else {
-                    current = gameData[currentStateId].maybe;
-                    finalAnswer = "maybe";
-                    if (current.voteAgain === true) {
-                        //same video, leave state as is and play.
-                        setTimeout(function() {
-                            startNextVideo(current.nextMedia);
-                        }, 5000);
-                        return;
-                    } else {
-                        currentStateId = current.nextMedia;
-                    }
-                }
-
-                if (gameData[currentStateId][finalAnswer].nextMedia.indexOf("end_") != -1) {
-                    calcAndPlayEnd(finalAnswer, gameData[currentStateId][finalAnswer].nextMedia);
-                } else {
-                    currentStateId = current.nextMedia;
-                    _sympathy = _sympathy + current.sympathy;
-
-                    $("#answers-yes").css("width", "50%");
-                    $("#answers-no").css("width", "50%");
-
-                    startNextVideo(currentStateId);                    
-                }
-
-            }, 5000);
-
-        }, false);
-
-        //tell server a voting starts now.
-        function startVoting(votingTime) {
-            console.log("start voting", mediaCounter);
-            $.post('/triggerVoting', {
-                mediaCounter: mediaCounter++,
-                votingTime: votingTime
-            });
+      $("#video").keypress(function (event) {
+        if ("m" === String.fromCharCode(event.keyCode)) {
+          audioMuted = !audioMuted;
+          muteOrUnmuteAudio();
         }
+      });
 
-        function startNextVideo(video, final) {
-            console.log("starting video", video);
-            $("#videoSource").attr("src", "/videos?video=" + video);
-            $("#video").load();
-            $("#video").get(0).play();
-            
-            //mute again if key was pressed before.
-            muteOrUnmuteAudio();
-            
-            $("#video").bind("ended", function (event) {
-                console.log("video ended");
-                $('video').unbind('ended');
-                if (!final) {
-                    startVoting(10);
-                }
-            });
-        }
+      source.addEventListener("ping", function (event) {
+        console.log("ping event received");
+      });
 
-        function muteOrUnmuteAudio() {
-            $("#video").prop('muted', audioMuted);
-        }
+      source.addEventListener(
+        "vote",
+        function (event) {
+          var data = JSON.parse(event.data);
 
-        function calcAndPlayEnd(finalAnswer, nextMedia) {
-            var finalVideo = "";
-            console.log("final sympathy", _sympathy);
+          var sumAnswers = data.answers.yes + data.answers.no;
+          $("#answers-yes").css(
+            "width",
+            Math.round((data.answers.yes / sumAnswers) * 100) + "%",
+          );
+          $("#answers-no").css(
+            "width",
+            Math.round((data.answers.no / sumAnswers) * 100) + "%",
+          );
+          $("#answers-yes").text(data.answers.yes);
+          $("#answers-no").text(data.answers.no);
 
-            if (finalAnswer === "no") {
-                if (_sympathy >= 0) {
-                    var temp1 = nextMedia.split(",")[0];
-                    finalVideo = temp1.substring(4, temp1.length);
-                } else {
-                    var temp2 = nextMedia.split(",")[1];
-                    finalVideo = temp2.substring(4, temp2.length);
-                }
+          $("#answers").show();
+
+          //blocks the process for 5 seconds and continues with evaluation -> next video.
+          setTimeout(function () {
+            $("#answers").hide();
+
+            var current;
+            var finalAnswer = "";
+
+            if (parseInt($("#answers-yes").css("width")) > 65) {
+              current = gameData[currentStateId].yes;
+              finalAnswer = "yes";
+            } else if (parseInt($("#answers-no").css("width")) > 65) {
+              current = gameData[currentStateId].no;
+              finalAnswer = "no";
             } else {
-                finalVideo = nextMedia.substring(4, nextMedia.length);
+              current = gameData[currentStateId].maybe;
+              finalAnswer = "maybe";
+              if (current.voteAgain === true) {
+                //same video, leave state as is and play.
+                setTimeout(function () {
+                  startNextVideo(current.nextMedia);
+                }, 5000);
+                return;
+              } else {
+                currentStateId = current.nextMedia;
+              }
             }
 
-            console.log("show final video");
-            startNextVideo(finalVideo, true);
+            if (
+              gameData[currentStateId][finalAnswer].nextMedia.indexOf("end_") !=
+              -1
+            ) {
+              calcAndPlayEnd(
+                finalAnswer,
+                gameData[currentStateId][finalAnswer].nextMedia,
+              );
+            } else {
+              currentStateId = current.nextMedia;
+              _sympathy = _sympathy + current.sympathy;
+
+              $("#answers-yes").css("width", "50%");
+              $("#answers-no").css("width", "50%");
+
+              startNextVideo(currentStateId);
+            }
+          }, 5000);
+        },
+        false,
+      );
+
+      //tell server a voting starts now.
+      function startVoting(votingTime) {
+        console.log("start voting", mediaCounter);
+        $.post("/triggerVoting", {
+          mediaCounter: mediaCounter++,
+          votingTime: votingTime,
+        });
+      }
+
+      function startNextVideo(video, final) {
+        console.log("starting video", video);
+        $("#videoSource").attr("src", "/videos?video=" + video);
+        $("#video").load();
+        $("#video").get(0).play();
+
+        //mute again if key was pressed before.
+        muteOrUnmuteAudio();
+
+        $("#video").bind("ended", function (event) {
+          console.log("video ended");
+          $("video").unbind("ended");
+          if (!final) {
+            startVoting(10);
+          }
+        });
+      }
+
+      function muteOrUnmuteAudio() {
+        $("#video").prop("muted", audioMuted);
+      }
+
+      function calcAndPlayEnd(finalAnswer, nextMedia) {
+        var finalVideo = "";
+        console.log("final sympathy", _sympathy);
+
+        if (finalAnswer === "no") {
+          if (_sympathy >= 0) {
+            var temp1 = nextMedia.split(",")[0];
+            finalVideo = temp1.substring(4, temp1.length);
+          } else {
+            var temp2 = nextMedia.split(",")[1];
+            finalVideo = temp2.substring(4, temp2.length);
+          }
+        } else {
+          finalVideo = nextMedia.substring(4, nextMedia.length);
         }
+
+        console.log("show final video");
+        startNextVideo(finalVideo, true);
+      }
+
+      $(document).ready(function () {
+        $("#play").click(function (event) {
+          console.log("click");
+          $("#play").hide();
+          $("#video").get(0).play();
+        });
+      });
     </script>
-</head>
-<body>
+  </head>
+  <body>
     <div class="video-container" style="">
-        <div class="video-container-inner">
-            <video id="video" preload="auto">
-                <source id="videoSource" src="" type="video/mp4"/>
-            </video>
-        </div>
+      <div class="video-container-inner">
+        <video id="video" preload="auto">
+          <source id="videoSource" src="" type="video/mp4" />
+        </video>
+      </div>
     </div>
+
+    <div class="initial-play"><button id="play">Play</button></div>
 
     <div class="progress" id="answers">
-        <div class="progress-bar progress-bar-danger" id="answers-yes">
-            <span class="sr-only">50%</span>
-        </div>
-        <div class="progress-bar progress-bar" id="answers-no">
-            <span class="sr-only">50%</span>
-        </div>
+      <div class="progress-bar progress-bar-danger" id="answers-yes">
+        <span class="sr-only">50%</span>
+      </div>
+      <div class="progress-bar progress-bar" id="answers-no">
+        <span class="sr-only">50%</span>
+      </div>
     </div>
-</body>
+  </body>
 </html>
